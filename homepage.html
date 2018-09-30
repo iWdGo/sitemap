@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Feedback app</title>
+    <style>{{.Style}}</style>
+     <!-- Unusable because of code injection protection
+    <link rel="stylesheet" type="text/css" href='styles.css'>
+    Like the link below for the same reason
+     -->
+    <link rel="icon" href="favicon.ico">
+</head>
+<body>
+<form action="/sign" method="post"><!-- URL base registered for the handler -->
+    <textarea name="content" rows="3" cols="60"></textarea>
+    <div><input type="submit" value="Leave a message"></div>
+</form>
+<!-- form is mandatory in HTML5 -->
+<form action="/handler" method="get"><button type="submit">View logs</button></form>
+</body>
+</html>

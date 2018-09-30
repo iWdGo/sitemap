@@ -1,0 +1,16 @@
+body {
+    font: 12px Verdana, Serif;
+    color: darkblue;
+}
+.h4 {
+    font-size: 14px;
+    font-weight: bold;
+    color: midnightblue;
+}
+p {
+    font: 12px SansSerif;
+    color: mediumblue;
+}
+input {
+    color: mediumblue;
+}

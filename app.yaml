@@ -1,0 +1,12 @@
+runtime: go
+api_version: go1
+
+handlers:
+# w/o this filter handlers are not found
+- url: /.*
+  script: _go_app
+# usage is not demonstrated
+skip_files:
+- ^\.git/.*$
+- ^.*_test.go$
+- ^.*.yaml$
