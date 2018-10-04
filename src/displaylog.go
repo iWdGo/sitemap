@@ -1,4 +1,4 @@
-package sitemap
+package src
 
 // Reading log content
 import (

@@ -1,7 +1,8 @@
-package sitemap
+package src
 
-/* Running on appengine standard, no main and no go run only dev_appserver.py is usable to start locally */
-// TODO improve file structure (iso one flat directory)
+/* Running on appengine standard, no main and no go run.
+only dev_appserver.py is usable to start inside app.yaml directory. */
+
 import (
 	"bytes"
 	"context"
@@ -13,11 +14,13 @@ import (
 	"runtime"
 )
 
-const cssFile = "styles.css"
-
-// TODO load favicon using template
-// Favicon produced using https://realfavicongenerator.net/ (others available)
-const faviconFile = "favicon.ico"
+const (
+	webDirectory = "../web/" // src>dev_appserver.py
+	cssFile      = "styles.css"
+	// TODO load favicon using template
+	// Favicon produced using https://realfavicongenerator.net/ (others available)
+	faviconFile = "favicon.ico"
+)
 
 // Site map value is readability and its availability for testing.
 // TODO add template in struct to avoid re-loading templates
@@ -54,7 +57,7 @@ var styleTag template.CSS
 
 func initStylesheet() {
 	// Loading style sheet
-	tmpl, err := template.ParseFiles(cssFile)
+	tmpl, err := template.ParseFiles(webDirectory + cssFile)
 	if err != nil {
 		println("init:", err.Error()) // No context and thus no logging
 		println("stylesheet is empty")
@@ -83,7 +86,7 @@ func tmplLoad(name string, r *http.Request) *template.Template {
 	ctx := appengine.NewContext(r)
 	//
 	// pattern is the glob pattern used to find all the html files.
-	pattern := filepath.Join(name + ".html")
+	pattern := filepath.Join(webDirectory + name + ".html")
 	tmpl, err := template.ParseGlob(pattern)
 	if err != nil {
 		log.Errorf(ctx, "%v", err)
@@ -123,7 +126,7 @@ func contextlog(w http.ResponseWriter, r *http.Request) {
 
 // You can't loop in root on site map
 func root(w http.ResponseWriter, r *http.Request) {
-	homepage := tmplLoad("homepage", r)
+	homepage := tmplLoad(webDirectory+"homepage", r)
 
 	data := struct {
 		Style   template.CSS
@@ -149,7 +152,7 @@ func root(w http.ResponseWriter, r *http.Request) {
 }
 
 func sign(w http.ResponseWriter, r *http.Request) {
-	feedback := tmplLoad("feedback", r)
+	feedback := tmplLoad(webDirectory+"feedback", r)
 	data := struct {
 		Style   template.CSS
 		Content string

@@ -1,4 +1,4 @@
-package sitemap
+package src
 
 import (
 	"html/template"
