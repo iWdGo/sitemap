@@ -9,6 +9,8 @@ This sample adds:
 - CSS style sheet loaded using template to comply with code injection.
 - online log display
 
+web folder contains HTML and the CSS stylesheet.
+
 `Go get` it and start locally using `dev_appserver.py`
 The sample is configured to use standard mode of `appengine`.
 
