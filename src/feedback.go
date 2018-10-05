@@ -1,7 +1,7 @@
 package src
 
 /* Running on appengine standard, no main and no go run.
-only dev_appserver.py is usable to start inside app.yaml directory. */
+only dev_appserver.py is usable to start the service inside app.yaml directory. */
 
 import (
 	"bytes"
@@ -15,7 +15,7 @@ import (
 )
 
 const (
-	webDirectory = "../web/" // src>dev_appserver.py
+	webDirectory = "web/" // sitemap>dev_appserver.py app.yaml
 	cssFile      = "styles.css"
 	// TODO load favicon using template
 	// Favicon produced using https://realfavicongenerator.net/ (others available)
@@ -27,7 +27,7 @@ const (
 var sitemap = []struct {
 	page     string
 	handler  func(w http.ResponseWriter, r *http.Request)
-	filename string // defaults to ""
+	filename string // defaults to "" and is searched in webdirectory
 	devapp   bool   // defaults to false
 }{
 	{
@@ -46,11 +46,15 @@ var sitemap = []struct {
 		filename: "feedback",
 	},
 	{
-		page:     "feedback", // synonym
+		page:     "feedback", // synonym of home page
 		handler:  root,
 		filename: "homepage",
 	},
 }
+
+// Can't loop on templates inside the sitemap
+// TODO try a map
+var tmpls = []*template.Template{}
 
 // Holding CSS required because of code injection defense
 var styleTag template.CSS
@@ -72,7 +76,44 @@ func initStylesheet() {
 	styleTag = template.CSS(myStyle.String())
 }
 
-// Target is std, i.e. init() and no main
+// Loading templates
+func tmplLoad(n string, r *http.Request) *template.Template {
+	ctx := appengine.NewContext(r)
+	//
+	// pattern is the glob pattern used to find all the html files.
+	pattern := filepath.Join(webDirectory + n + ".html")
+	tmpl, err := template.ParseGlob(pattern)
+	if err != nil {
+		log.Errorf(ctx, "%v", err)
+	}
+	// the value returned by ParseGlob.
+	return template.Must(tmpl, err)
+}
+
+// In Std mode, loading is during init without context
+func initHTMLTemplate(n string) *template.Template {
+	pattern := filepath.Join(webDirectory + n + ".html")
+	tmpl, err := template.ParseGlob(pattern)
+	if err != nil {
+		println(err)
+	}
+	// the value returned by ParseGlob.
+	return template.Must(tmpl, err)
+}
+
+func searchTemplate(n string) *template.Template {
+	for i, t := range sitemap {
+		if t.filename == n {
+			if tmpls[i] == nil {
+				tmpls[i] = initHTMLTemplate(t.filename)
+			}
+			return tmpls[i]
+		}
+	}
+	return nil // In case of template error, empty page displays
+}
+
+// Target is std, i.e. init() and no main. You can't loop on sitemap during init.
 func init() {
 	// Registering handlers
 	for _, h := range sitemap {
@@ -81,19 +122,6 @@ func init() {
 	initStylesheet()
 }
 
-// Loading templates
-func tmplLoad(name string, r *http.Request) *template.Template {
-	ctx := appengine.NewContext(r)
-	//
-	// pattern is the glob pattern used to find all the html files.
-	pattern := filepath.Join(webDirectory + name + ".html")
-	tmpl, err := template.ParseGlob(pattern)
-	if err != nil {
-		log.Errorf(ctx, "%v", err)
-	}
-	// the value returned by ParseGlob.
-	return template.Must(tmpl, err)
-}
 func contextlog(w http.ResponseWriter, r *http.Request) {
 	var ctx context.Context
 	var module, instance string
@@ -126,8 +154,8 @@ func contextlog(w http.ResponseWriter, r *http.Request) {
 
 // You can't loop in root on site map
 func root(w http.ResponseWriter, r *http.Request) {
-	homepage := tmplLoad(webDirectory+"homepage", r)
-
+	homepage := tmplLoad("homepage", r)
+	// No context during init to log
 	data := struct {
 		Style   template.CSS
 		Content string
@@ -137,6 +165,7 @@ func root(w http.ResponseWriter, r *http.Request) {
 	}
 
 	err := homepage.Execute(w, data)
+	// err := searchTemplate(filepath.Base(r.URL.Path)).Execute(w,data)
 	if err != nil {
 		log.Errorf(appengine.NewContext(r), "%v", err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -152,7 +181,7 @@ func root(w http.ResponseWriter, r *http.Request) {
 }
 
 func sign(w http.ResponseWriter, r *http.Request) {
-	feedback := tmplLoad(webDirectory+"feedback", r)
+	feedback := tmplLoad("feedback", r)
 	data := struct {
 		Style   template.CSS
 		Content string

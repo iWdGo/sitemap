@@ -9,4 +9,4 @@ handlers:
 skip_files:
 - ^\.git/.*$
 - ^.*_test.go$
-- ^.*.yaml$
+# - ^.*.yaml$
