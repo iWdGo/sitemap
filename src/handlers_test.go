@@ -8,8 +8,8 @@ import (
 	"testing"
 )
 
-func templateNil(t *testing.T, name string) string {
-	tmpl, err := template.ParseGlob(filepath.Join(name + ".html"))
+func templateNil(t *testing.T, n string) string {
+	tmpl, err := template.ParseGlob(filepath.Join(webDirectory + n + ".html"))
 	if err != nil {
 		t.Fatalf("%v", err)
 	}
@@ -34,7 +34,11 @@ func TestHandlersOffline(t *testing.T) {
 			}
 
 			w := httptest.NewRecorder()
-			h.handler(w, r)
+			if h.handler != nil {
+				h.handler(w, r)
+			} else {
+				root(w, r)
+			}
 
 			if w.Code != 200 {
 				t.Fatalf("wrong code returned: %d", w.Code)

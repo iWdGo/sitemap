@@ -23,7 +23,7 @@ const (
 )
 
 // Site map value is readability and its availability for testing.
-// TODO add template in struct to avoid re-loading templates
+// TODO refactor page into url
 var sitemap = []struct {
 	page     string
 	handler  func(w http.ResponseWriter, r *http.Request)
@@ -33,11 +33,12 @@ var sitemap = []struct {
 	{
 		page:    "handler",
 		handler: contextlog,
-		devapp:  true, // offline test will crash otherwise
+		// filename default is handler name
+		devapp: true, // offline test will crash otherwise
 	},
 	{
-		page:     "",
-		handler:  root,
+		page: "",
+		// default handler is root()
 		filename: "homepage",
 	},
 	{
@@ -46,15 +47,16 @@ var sitemap = []struct {
 		filename: "feedback",
 	},
 	{
-		page:     "feedback", // synonym of home page
-		handler:  root,
+		page: "feedback",
+		// synonym of default handler
 		filename: "homepage",
 	},
 }
 
-// Can't loop on templates inside the sitemap
-// TODO try a map
-var tmpls = []*template.Template{}
+// A map contains the templates to load them once.
+// It can't be included in the sitemap because of looping reference during build.
+// The map index is the page as the URI determines the page returned
+var siteTmpl = make(map[string]*template.Template)
 
 // Holding CSS required because of code injection defense
 var styleTag template.CSS
@@ -76,20 +78,6 @@ func initStylesheet() {
 	styleTag = template.CSS(myStyle.String())
 }
 
-// Loading templates
-func tmplLoad(n string, r *http.Request) *template.Template {
-	ctx := appengine.NewContext(r)
-	//
-	// pattern is the glob pattern used to find all the html files.
-	pattern := filepath.Join(webDirectory + n + ".html")
-	tmpl, err := template.ParseGlob(pattern)
-	if err != nil {
-		log.Errorf(ctx, "%v", err)
-	}
-	// the value returned by ParseGlob.
-	return template.Must(tmpl, err)
-}
-
 // In Std mode, loading is during init without context
 func initHTMLTemplate(n string) *template.Template {
 	pattern := filepath.Join(webDirectory + n + ".html")
@@ -97,29 +85,30 @@ func initHTMLTemplate(n string) *template.Template {
 	if err != nil {
 		println(err)
 	}
-	// the value returned by ParseGlob.
 	return template.Must(tmpl, err)
 }
 
-func searchTemplate(n string) *template.Template {
-	for i, t := range sitemap {
-		if t.filename == n {
-			if tmpls[i] == nil {
-				tmpls[i] = initHTMLTemplate(t.filename)
-			}
-			return tmpls[i]
-		}
-	}
-	return nil // In case of template error, empty page displays
-}
-
-// Target is std, i.e. init() and no main. You can't loop on sitemap during init.
+// Target is std, i.e. init() and no main.
 func init() {
 	// Registering handlers
 	for _, h := range sitemap {
-		http.HandleFunc("/"+h.page, h.handler) // displays contextual only if deployed
+		if h.handler != nil {
+			http.HandleFunc("/"+h.page, h.handler)
+		} else {
+			http.HandleFunc("/"+h.page, root) // default handler is root()
+		}
 	}
 	initStylesheet()
+	// Loading templates. It would be ideal to load templates when requested.
+	// Due to build issue reported as looping reference, it does not work.
+	for _, t := range sitemap {
+		if f := t.filename; f == "" {
+			// using handler name as filename
+			siteTmpl[t.page] = initHTMLTemplate(t.page)
+		} else {
+			siteTmpl[t.page] = initHTMLTemplate(t.filename)
+		}
+	}
 }
 
 func contextlog(w http.ResponseWriter, r *http.Request) {
@@ -144,17 +133,28 @@ func contextlog(w http.ResponseWriter, r *http.Request) {
 		Instance:   instance,
 		Logentries: displaylog(r),
 	}
-	contextlog := tmplLoad("contextlog", r)
-	err := contextlog.Execute(w, data)
-	if err != nil {
-		log.Errorf(appengine.NewContext(r), "%v", err)
+	var err error
+	u := filepath.Base(r.URL.Path)
+	// In case of template error, nil is returned
+	if t := siteTmpl[u]; t != nil {
+		err = t.Execute(w, data)
+	} else {
+		// request received landed on default page and cannot be served. Logged as info and not error
+		pc, _, _, _ := runtime.Caller(0) // Provides the name of the handler
+		if filepath.Base(r.URL.Path) != "\\" && appengine.IsDevAppServer() {
+			log.Infof(appengine.NewContext(r), "%s was called using %s",
+				runtime.FuncForPC(pc).Name(),
+				filepath.Base(r.URL.Path))
+		}
+	}
+	if err != nil { // Template execution failed
+		log.Errorf(ctx, "%v", err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
 }
 
 // You can't loop in root on site map
 func root(w http.ResponseWriter, r *http.Request) {
-	homepage := tmplLoad("homepage", r)
 	// No context during init to log
 	data := struct {
 		Style   template.CSS
@@ -164,24 +164,36 @@ func root(w http.ResponseWriter, r *http.Request) {
 		Content: r.FormValue("content"),
 	}
 
-	err := homepage.Execute(w, data)
-	// err := searchTemplate(filepath.Base(r.URL.Path)).Execute(w,data)
+	var err error
+	u := filepath.Base(r.URL.Path)
+	if u == "\\" { // Home page base URL is \ is set to "" for consistency
+		u = ""
+	}
+	// A nil template can be:
+	// - inconsistent sitemap
+	// - invalid template (error during load)
+	// - no template provided
+	// - appengine internal requests like favicon, styles
+	if t := siteTmpl[u]; t != nil {
+		// synonym is not reported but only served
+		err = t.Execute(w, data)
+	} else {
+		// request received landed on default page and cannot be served. Logged as info and not error
+		pc, _, _, _ := runtime.Caller(0) // Provides the name of the handler
+		if filepath.Base(r.URL.Path) != "\\" && appengine.IsDevAppServer() {
+			log.Infof(appengine.NewContext(r), "%s was called using %s",
+				runtime.FuncForPC(pc).Name(),
+				filepath.Base(r.URL.Path))
+		}
+	}
 	if err != nil {
 		log.Errorf(appengine.NewContext(r), "%v", err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
 
-	pc, _, _, _ := runtime.Caller(0) // Provides the name of the handler
-
-	if filepath.Base(r.URL.Path) != "\\" && appengine.IsDevAppServer() {
-		log.Infof(appengine.NewContext(r), "%s was called using %s",
-			runtime.FuncForPC(pc).Name(),
-			filepath.Base(r.URL.Path))
-	}
 }
 
 func sign(w http.ResponseWriter, r *http.Request) {
-	feedback := tmplLoad("feedback", r)
 	data := struct {
 		Style   template.CSS
 		Content string
@@ -189,7 +201,11 @@ func sign(w http.ResponseWriter, r *http.Request) {
 		Style:   styleTag,
 		Content: r.FormValue("content"),
 	}
-	err := feedback.Execute(w, data)
+
+	var err error
+	if t := siteTmpl[filepath.Base(r.URL.Path)]; t != nil {
+		err = t.Execute(w, data)
+	}
 	if err != nil {
 		log.Errorf(appengine.NewContext(r), "%v", err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)

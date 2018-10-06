@@ -2,16 +2,21 @@
 
 A step-by-step guide is here https://golang.org/doc/articles/wiki/
 
-This sample adds:
-- a site map struct to describe each url of the site
-- how a handler can dynamically handle synonyms.
-- basic tests of handlers is one go test using the map.
-- CSS style sheet loaded using template to comply with code injection.
-- online log display
+This sample uses a struct to describe each page:
+- its base url
+- its handler which defaults to the home page handler
+- the html template to serve the page. When no file name is provided, it defaults to the page URL.
+- CSS style sheet is loaded for the site
+- templates are loaded once during init phase (Std mode)
 
-web folder contains HTML and the CSS stylesheet.
+Some features:
+- Style sheet is common.
+- Inconsistencies are not breaking the site.
+- Logs contain all handled exceptions related to the structure.
 
 `Go get` it and start locally using `dev_appserver.py`
 The sample is configured to use standard mode of `appengine`.
 
-Some TODO's are included.
+Known issues:
+- Tests are broken because init() fails when starting tests.
+- TODO's
