@@ -13,10 +13,11 @@ Some features:
 - Style sheet is common.
 - Inconsistencies are not breaking the site.
 - Logs contain all handled exceptions related to the structure.
+- Basic tests
 
-`Go get` it and start locally using `dev_appserver.py`
-The sample is configured to use standard mode of `appengine`.
+`Go get` it and start locally using `dev_appserver.py` or `dev_appserver.py %CD%`.
+Testing is executed using `go test ./src`.
+This sample is configured to use standard mode of `appengine`.
 
 Known issues:
-- Tests are broken because init() fails when starting tests.
-- TODO's
+- favicon is not loaded

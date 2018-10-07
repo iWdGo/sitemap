@@ -10,52 +10,56 @@ import (
 	"google.golang.org/appengine/log"
 	"html/template"
 	"net/http"
+	"os"
 	"path/filepath"
 	"runtime"
 )
 
 const (
-	webDirectory = "web/" // sitemap>dev_appserver.py app.yaml
-	cssFile      = "styles.css"
+	// webDirectory = "web/" // sitemap>dev_appserver.py app.yaml
+	cssFile = "styles.css"
 	// TODO load favicon using template
 	// Favicon produced using https://realfavicongenerator.net/ (others available)
 	faviconFile = "favicon.ico"
 )
 
-// Site map value is readability and its availability for testing.
-// TODO refactor page into url
+var webDirectory = "web/" // sitemap>dev_appserver.py app.yaml
+
+// Site map added value:
+// - readability
+// - flexibility
+// - ease of testing which does not need to be tailored to the structure of the site.
 var sitemap = []struct {
-	page     string
+	url      string
 	handler  func(w http.ResponseWriter, r *http.Request)
 	filename string // defaults to "" and is searched in webdirectory
 	devapp   bool   // defaults to false
 }{
 	{
-		page:    "handler",
+		url:     "handler",
 		handler: contextlog,
 		// filename default is handler name
 		devapp: true, // offline test will crash otherwise
 	},
 	{
-		page: "",
+		url: "",
 		// default handler is root()
 		filename: "homepage",
 	},
 	{
-		page:     "sign",
+		url:      "sign",
 		handler:  sign,
 		filename: "feedback",
 	},
 	{
-		page: "feedback",
-		// synonym of default handler
+		url:      "feedback", // synonym of default handler
 		filename: "homepage",
 	},
 }
 
 // A map contains the templates to load them once.
 // It can't be included in the sitemap because of looping reference during build.
-// The map index is the page as the URI determines the page returned
+// The map index is the base url of the page.
 var siteTmpl = make(map[string]*template.Template)
 
 // Holding CSS required because of code injection defense
@@ -90,12 +94,18 @@ func initHTMLTemplate(n string) *template.Template {
 
 // Target is std, i.e. init() and no main.
 func init() {
+	// os.IsNotExist(err) fails as the error return is "FindFirstFile web/: The parameter is incorrect."
+	// Issue is probably related to dev_appserver.py and Python
+	if _, err := os.Stat(webDirectory); err != nil {
+		// Tests files are in src directory (or a "test" directory)
+		webDirectory = "../web/"
+	}
 	// Registering handlers
 	for _, h := range sitemap {
 		if h.handler != nil {
-			http.HandleFunc("/"+h.page, h.handler)
+			http.HandleFunc("/"+h.url, h.handler)
 		} else {
-			http.HandleFunc("/"+h.page, root) // default handler is root()
+			http.HandleFunc("/"+h.url, root) // default handler is root()
 		}
 	}
 	initStylesheet()
@@ -104,9 +114,9 @@ func init() {
 	for _, t := range sitemap {
 		if f := t.filename; f == "" {
 			// using handler name as filename
-			siteTmpl[t.page] = initHTMLTemplate(t.page)
+			siteTmpl[t.url] = initHTMLTemplate(t.url)
 		} else {
-			siteTmpl[t.page] = initHTMLTemplate(t.filename)
+			siteTmpl[t.url] = initHTMLTemplate(t.filename)
 		}
 	}
 }

@@ -28,7 +28,7 @@ func templateNil(t *testing.T, n string) string {
 func TestHandlersOffline(t *testing.T) {
 	for _, h := range sitemap {
 		if !h.devapp {
-			r, err := http.NewRequest("GET", "/"+h.page, http.NoBody)
+			r, err := http.NewRequest("GET", "/"+h.url, http.NoBody)
 			if err != nil {
 				t.Fatal("New request failed with ", err)
 			}
@@ -47,7 +47,7 @@ func TestHandlersOffline(t *testing.T) {
 			// Test compares result of handler and the template execution w/o data (nil)
 			tname := h.filename
 			if tname == "" { // filename is the handler name
-				tname = h.page
+				tname = h.url
 			}
 			got := templateNil(t, tname)
 			if want := w.Body.String(); want == got {

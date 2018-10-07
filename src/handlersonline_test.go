@@ -15,7 +15,7 @@ func TestHandlersOnline(t *testing.T) {
 
 	for _, h := range sitemap {
 
-		req, err := http.NewRequest("GET", url+"/"+h.page, http.NoBody)
+		req, err := http.NewRequest("GET", url+"/"+h.url, http.NoBody)
 		if err != nil {
 			t.Fatal(err)
 		}
