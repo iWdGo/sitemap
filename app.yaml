@@ -5,6 +5,10 @@ handlers:
 # w/o this filter handlers are not found
 - url: /.*
   script: _go_app
+# Useless if you use a handle
+# - url: /web
+#  static_dir: web
+
 # usage is not demonstrated
 skip_files:
 - ^\.git/.*$

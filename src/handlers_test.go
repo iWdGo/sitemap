@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -36,8 +37,10 @@ func TestHandlersOffline(t *testing.T) {
 			w := httptest.NewRecorder()
 			if h.handler != nil {
 				h.handler(w, r)
-			} else {
+			} else if strings.Count(h.filename, ".") == 0 {
 				root(w, r)
+			} else { // static files are not tested
+				continue
 			}
 
 			if w.Code != 200 {

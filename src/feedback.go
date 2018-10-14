@@ -13,6 +13,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strings"
 )
 
 const (
@@ -55,6 +56,10 @@ var sitemap = []struct {
 		url:      "feedback", // synonym of default handler
 		filename: "homepage",
 	},
+	{
+		// url is a handle to webdirectory/filename.ext
+		filename: "GoHead.JPG",
+	},
 }
 
 // A map contains the templates to load them once.
@@ -83,7 +88,7 @@ func initStylesheet() {
 }
 
 // In Std mode, loading is during init without context
-func initHTMLTemplate(n string) *template.Template {
+func initTemplate(n string) *template.Template {
 	pattern := filepath.Join(webDirectory + n + ".html")
 	tmpl, err := template.ParseGlob(pattern)
 	if err != nil {
@@ -101,9 +106,17 @@ func init() {
 		webDirectory = "../web/"
 	}
 	// Registering handlers
+	// Handler to serve the fixed elements like images and icons w/o letting the directory accessible
+	webH := http.StripPrefix("/"+webDirectory, http.FileServer(http.Dir(webDirectory)))
 	for _, h := range sitemap {
 		if h.handler != nil {
 			http.HandleFunc("/"+h.url, h.handler)
+		} else if strings.Count(h.filename, ".") != 0 {
+			// a . was found and file is not html template but jpeg, png,...
+			// webdirectory is left into the handle. HTML href="webDirectory/filename.ext"
+			// Web directory cannot be browsed because of the pattern of the handle.
+			// http.Handle("/"+webDirectory+"GoHead.JPG", webH)
+			http.Handle("/"+webDirectory+h.filename, webH)
 		} else {
 			http.HandleFunc("/"+h.url, root) // default handler is root()
 		}
@@ -114,11 +127,14 @@ func init() {
 	for _, t := range sitemap {
 		if f := t.filename; f == "" {
 			// using handler name as filename
-			siteTmpl[t.url] = initHTMLTemplate(t.url)
-		} else {
-			siteTmpl[t.url] = initHTMLTemplate(t.filename)
+			siteTmpl[t.url] = initTemplate(t.url)
+		} else if strings.Count(f, ".") == 0 { // not a static file
+			siteTmpl[t.url] = initTemplate(t.filename)
 		}
 	}
+
+	// TODO This is serving the image and not the favicon.
+	http.Handle("/"+webDirectory+"favicon.ico", webH)
 }
 
 func contextlog(w http.ResponseWriter, r *http.Request) {
@@ -165,6 +181,7 @@ func contextlog(w http.ResponseWriter, r *http.Request) {
 
 // You can't loop in root on site map
 func root(w http.ResponseWriter, r *http.Request) {
+	var err error
 	// No context during init to log
 	data := struct {
 		Style   template.CSS
@@ -174,7 +191,6 @@ func root(w http.ResponseWriter, r *http.Request) {
 		Content: r.FormValue("content"),
 	}
 
-	var err error
 	u := filepath.Base(r.URL.Path)
 	if u == "\\" { // Home page base URL is \ is set to "" for consistency
 		u = ""
@@ -200,10 +216,10 @@ func root(w http.ResponseWriter, r *http.Request) {
 		log.Errorf(appengine.NewContext(r), "%v", err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
-
 }
 
 func sign(w http.ResponseWriter, r *http.Request) {
+	var err error
 	data := struct {
 		Style   template.CSS
 		Content string
@@ -212,7 +228,6 @@ func sign(w http.ResponseWriter, r *http.Request) {
 		Content: r.FormValue("content"),
 	}
 
-	var err error
 	if t := siteTmpl[filepath.Base(r.URL.Path)]; t != nil {
 		err = t.Execute(w, data)
 	}

@@ -4,11 +4,11 @@
     <meta charset="UTF-8">
     <title>Feedback app</title>
     <style>{{.Style}}</style>
-     <!-- Unusable because of code injection protection
+    <!-- Unusable because of code injection protection
     <link rel="stylesheet" type="text/css" href='styles.css'>
-    Like the link below for the same reason
-     -->
     <link rel="icon" href="favicon.ico">
+    -->
+    <link rel="icon" href="web/favicon.ico">
 </head>
 <body>
 <form action="/sign" method="post"><!-- URL base registered for the handler -->
@@ -17,5 +17,6 @@
 </form>
 <!-- form is mandatory in HTML5 -->
 <form action="/handler" method="get"><button type="submit">View logs</button></form>
+<img id="go-A-head" src="web/GoHead.JPG">
 </body>
 </html>

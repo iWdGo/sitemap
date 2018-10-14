@@ -8,10 +8,12 @@ This sample uses a struct to describe each page:
 - the html template to serve the page. When no file name is provided, it defaults to the page URL.
 - CSS style sheet is loaded for the site
 - templates are loaded once during init phase (Std mode)
+- static files are only a filename with extension
 
 Some features:
 - Style sheet is common.
 - Inconsistencies are not breaking the site.
+- Static files folder cannot be browsed.
 - Logs contain all handled exceptions related to the structure.
 - Basic tests
 
@@ -21,3 +23,4 @@ This sample is configured to use standard mode of `appengine`.
 
 Known issues:
 - favicon is not loaded
+- To deploy on Google Cloud, app.yaml must be moved inside the `src` directory.
